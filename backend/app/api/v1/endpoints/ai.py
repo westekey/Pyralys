@@ -17,6 +17,8 @@ from app.schemas.ai import (
 )
 from app.services.ai.text_generator import TextGenerator
 from app.services.ai.image_generator import ImageGenerator
+from app.services.quota_service import QuotaService
+from app.models.usage import UsageType
 
 router = APIRouter()
 
@@ -34,9 +36,13 @@ async def generate_caption(
     - **platform**: Target platform (instagram, tiktok, etc.)
     - **tone**: Writing tone (casual, professional, funny, inspirational)
     """
-    # TODO: Add quota validation
-    # if not await quota_service.check_quota(current_user, "caption"):
-    #     raise HTTPException(status_code=429, detail="Caption generation quota exceeded")
+    # Check quota
+    quota_service = QuotaService(db)
+    if not await quota_service.check_quota(current_user, UsageType.CAPTION):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Caption generation quota exceeded for your plan"
+        )
 
     try:
         generator = TextGenerator()
@@ -57,8 +63,8 @@ async def generate_caption(
             user_context=user_context
         )
 
-        # TODO: Track quota usage
-        # await quota_service.increment_usage(current_user, "caption")
+        # Track quota usage
+        await quota_service.increment_usage(current_user, UsageType.CAPTION)
 
         return CaptionGenerationResponse(
             caption=result["caption"],
@@ -86,16 +92,19 @@ async def generate_image(
     - **style**: Optional style modifier
     - **size**: Image dimensions
     """
-    # Premium feature - check plan type
-    if current_user.plan_type == "free":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Image generation requires Premium or Pro plan"
-        )
-
-    # TODO: Add quota validation
-    # if not await quota_service.check_quota(current_user, "image"):
-    #     raise HTTPException(status_code=429, detail="Image generation quota exceeded")
+    # Check quota (includes plan check)
+    quota_service = QuotaService(db)
+    if not await quota_service.check_quota(current_user, UsageType.IMAGE):
+        if current_user.plan_type == "free":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Image generation requires Premium or Pro plan"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Image generation quota exceeded for your plan"
+            )
 
     try:
         generator = ImageGenerator()
@@ -120,8 +129,8 @@ async def generate_image(
             quality=request.quality or "standard"
         )
 
-        # TODO: Track quota usage
-        # await quota_service.increment_usage(current_user, "image")
+        # Track quota usage
+        await quota_service.increment_usage(current_user, UsageType.IMAGE)
         # TODO: Download and upload to S3 for persistence
 
         return ImageGenerationResponse(
@@ -155,9 +164,13 @@ async def generate_hashtags(
     - **platform**: Target platform
     - **count**: Number of hashtags to generate (default: 10)
     """
-    # TODO: Add quota validation
-    # if not await quota_service.check_quota(current_user, "hashtag"):
-    #     raise HTTPException(status_code=429, detail="Hashtag generation quota exceeded")
+    # Check quota
+    quota_service = QuotaService(db)
+    if not await quota_service.check_quota(current_user, UsageType.HASHTAG):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Hashtag generation quota exceeded for your plan"
+        )
 
     try:
         generator = TextGenerator()
@@ -169,8 +182,8 @@ async def generate_hashtags(
             count=request.count
         )
 
-        # TODO: Track quota usage
-        # await quota_service.increment_usage(current_user, "hashtag")
+        # Track quota usage
+        await quota_service.increment_usage(current_user, UsageType.HASHTAG)
 
         return HashtagGenerationResponse(
             hashtags=hashtags,
@@ -183,6 +196,20 @@ async def generate_hashtags(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Hashtag generation failed: {str(e)}"
         )
+
+
+@router.get("/quotas")
+async def get_quotas(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all quota information for the current user
+
+    Returns usage limits, current usage, and remaining quota for all features
+    """
+    quota_service = QuotaService(db)
+    return await quota_service.get_all_quotas(current_user)
 
 
 @router.post("/predict-performance")
