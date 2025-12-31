@@ -137,6 +137,69 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
 
+  # WordPress MySQL Database
+  wordpress_mysql:
+    image: mysql:8.0
+    container_name: pyralys-wordpress-mysql
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress123
+      MYSQL_ROOT_PASSWORD: rootpass123
+    ports:
+      - "3307:3306"
+    volumes:
+      - wordpress_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # WordPress avec plugin Pyralys monté en temps réel
+  wordpress:
+    image: wordpress:latest
+    container_name: pyralys-wordpress
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: wordpress_mysql
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress123
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DEBUG: 1
+      WORDPRESS_CONFIG_EXTRA: |
+        /* Pyralys Development Settings */
+        define('WP_DEBUG', true);
+        define('WP_DEBUG_LOG', true);
+        define('WP_DEBUG_DISPLAY', false);
+        define('SCRIPT_DEBUG', true);
+    volumes:
+      # Mount du plugin Pyralys en développement (HOT-RELOAD activé!)
+      - ./wordpress-plugin:/var/www/html/wp-content/plugins/pyralys
+      # Persist WordPress files
+      - wordpress_data:/var/www/html
+    depends_on:
+      wordpress_mysql:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
+  # phpMyAdmin pour gérer WordPress MySQL
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: pyralys-phpmyadmin
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: wordpress_mysql
+      PMA_USER: wordpress
+      PMA_PASSWORD: wordpress123
+    depends_on:
+      - wordpress_mysql
+
 volumes:
   postgres_data:
   redis_data:
+  wordpress_mysql_data:
+  wordpress_data:
