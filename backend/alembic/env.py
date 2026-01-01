@@ -9,6 +9,10 @@ from app.models.base import Base
 from app.models.user import User
 from app.models.post import Post
 from app.models.social_account import SocialAccount
+from app.models.instagram_account import InstagramAccount
+from app.models.wordpress_account import WordPressAccount
+from app.models.subscription import Subscription, Invoice, PaymentMethod
+from app.models.usage import UsageRecord
 
 # this is the Alembic Config object
 config = context.config
