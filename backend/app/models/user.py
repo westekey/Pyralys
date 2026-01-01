@@ -25,6 +25,11 @@ class User(Base, TimestampMixin):
 
     # Relationships
     usage_records = relationship("Usage", back_populates="user", cascade="all, delete-orphan")
+    wordpress_accounts = relationship("WordPressAccount", back_populates="user", cascade="all, delete-orphan")
+    instagram_accounts = relationship("InstagramAccount", back_populates="user", cascade="all, delete-orphan")
+    posts = relationship("Post", back_populates="user", cascade="all, delete-orphan")
+    media = relationship("Media", back_populates="user", cascade="all, delete-orphan")
+    subscription = relationship("Subscription", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email})>"
