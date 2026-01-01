@@ -17,6 +17,8 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.services.post_service import PostService
+from app.tasks.publishing import publish_to_multiple_platforms
+from app.tasks.scheduling import schedule_post as schedule_post_task, cancel_scheduled_post
 
 router = APIRouter()
 
@@ -389,8 +391,6 @@ async def publish_post(
     - **platforms**: List of platforms to publish to
     - **publish_immediately**: If true, publish now; if false, schedule for later
     - **scheduled_for**: ISO datetime string for scheduled publishing
-
-    Note: Actual publishing logic will be implemented in Sprint 5 with Celery tasks
     """
     post_service = PostService(db)
 
@@ -412,8 +412,7 @@ async def publish_post(
                 detail=f"Invalid platform: {platform}"
             )
 
-    # TODO: Implement actual publishing logic with Celery (Sprint 5)
-    # For now, just create publication records
+    # Create publication records
     publications = []
     for platform in publish_request.platforms:
         publication = await post_service.create_publication_record(
@@ -427,14 +426,50 @@ async def publish_post(
             "status": publication.status
         })
 
-    return {
-        "message": "Post queued for publishing",
-        "post_id": str(post.id),
-        "platforms": publish_request.platforms,
-        "scheduled": not publish_request.publish_immediately,
-        "scheduled_for": publish_request.scheduled_for if not publish_request.publish_immediately else None,
-        "publications": publications
-    }
+    # Queue publishing task with Celery
+    if publish_request.publish_immediately:
+        # Publish now
+        task = publish_to_multiple_platforms.apply_async(
+            args=[post_id, str(current_user.id), publish_request.platforms],
+            countdown=0
+        )
+
+        return {
+            "message": "Post queued for publishing",
+            "post_id": str(post.id),
+            "platforms": publish_request.platforms,
+            "task_id": task.id,
+            "scheduled": False,
+            "publications": publications
+        }
+    else:
+        # Schedule for later
+        if not publish_request.scheduled_for:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="scheduled_for is required when publish_immediately is false"
+            )
+
+        # Update post as scheduled
+        from app.schemas.post import PostUpdate
+        await post_service.update_post(
+            post_id=post_id,
+            user=current_user,
+            post_data=PostUpdate(
+                status="scheduled",
+                scheduled_at=publish_request.scheduled_for,
+                target_platforms=publish_request.platforms
+            )
+        )
+
+        return {
+            "message": "Post scheduled for publishing",
+            "post_id": str(post.id),
+            "platforms": publish_request.platforms,
+            "scheduled": True,
+            "scheduled_for": publish_request.scheduled_for,
+            "publications": publications
+        }
 
 
 @router.post("/posts/{post_id}/schedule")
@@ -449,9 +484,25 @@ async def schedule_post(
 
     - **scheduled_at**: ISO datetime string (e.g., "2025-02-01T10:00:00")
 
-    Note: Actual scheduling logic will be implemented in Sprint 5 with Celery Beat
+    The post will be automatically published at the scheduled time via Celery Beat
     """
     post_service = PostService(db)
+
+    # Get the post
+    post = await post_service.get_post(post_id, current_user)
+
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found"
+        )
+
+    # Validate that post has target platforms
+    if not post.target_platforms or len(post.target_platforms) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Post must have at least one target platform"
+        )
 
     # Update post with scheduled time
     post_data = PostUpdate(
@@ -461,17 +512,76 @@ async def schedule_post(
 
     post = await post_service.update_post(post_id, current_user, post_data)
 
+    return {
+        "message": "Post scheduled successfully. It will be published automatically at the scheduled time.",
+        "post_id": str(post.id),
+        "scheduled_at": scheduled_at,
+        "status": post.status.value,
+        "platforms": post.target_platforms
+    }
+
+
+@router.post("/posts/{post_id}/cancel-schedule")
+async def cancel_post_schedule(
+    post_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Cancel a scheduled post and revert it to draft status
+    """
+    post_service = PostService(db)
+
+    # Get the post
+    post = await post_service.get_post(post_id, current_user)
+
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found"
         )
 
+    if post.status.value != "scheduled":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Post is not scheduled"
+        )
+
+    # Update post back to draft
+    post_data = PostUpdate(
+        status="draft",
+        scheduled_at=None
+    )
+
+    post = await post_service.update_post(post_id, current_user, post_data)
+
     return {
-        "message": "Post scheduled successfully",
+        "message": "Scheduled post cancelled successfully",
         "post_id": str(post.id),
-        "scheduled_at": scheduled_at,
         "status": post.status.value
+    }
+
+
+@router.get("/tasks/{task_id}")
+async def get_task_status(
+    task_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the status of a Celery task
+
+    - **task_id**: Celery task ID returned from publish endpoint
+    """
+    from celery.result import AsyncResult
+    from app.celery_app import celery_app
+
+    task = AsyncResult(task_id, app=celery_app)
+
+    return {
+        "task_id": task_id,
+        "status": task.state,
+        "result": task.result if task.ready() else None,
+        "info": task.info
     }
 
 
