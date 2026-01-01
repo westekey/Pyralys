@@ -83,6 +83,7 @@ Ce projet contient une **documentation exhaustive** pour guider le développemen
 - **Pour les Développeurs :** Voir [02-ARCHITECTURE-TECHNIQUE](docs/02-ARCHITECTURE-TECHNIQUE.md) et [04-PLAN-MVP](docs/04-PLAN-DEVELOPPEMENT-MVP.md)
 - **Pour les Designers :** Consultez [03-CONCEPTION-UX-UI](docs/03-CONCEPTION-UX-UI.md)
 - **Pour les Marketeurs :** Référez-vous à [05-STRATEGIE-MARKETING](docs/05-STRATEGIE-MARKETING.md)
+- **Pour le Déploiement :** Voir [DEPLOYMENT.md](DEPLOYMENT.md) et [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md)
 
 ---
 
@@ -90,16 +91,41 @@ Ce projet contient une **documentation exhaustive** pour guider le développemen
 
 ### Prerequisites
 
-**Backend :**
+**Using Docker (Recommended):**
+- Docker 20.10+
+- Docker Compose 2.0+
+
+**Manual Installation:**
 - Python 3.11+
 - PostgreSQL 15+
 - Redis 7+
+- Node.js 20+
 
-**Frontend :**
-- Node.js 18+
-- npm ou yarn
+### Development Setup (Docker)
 
-### Installation (Coming Soon)
+```bash
+# Clone repository
+git clone https://github.com/westekey/Pyralys.git
+cd Pyralys
+
+# Start all services
+docker-compose up -d
+
+# Check services are running
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+
+# Access the application
+# Frontend: http://localhost:3000
+# Backend API: http://localhost:8000
+# API Docs: http://localhost:8000/docs
+# Flower (Celery): http://localhost:5555
+# WordPress: http://localhost:8080
+```
+
+### Manual Installation
 
 ```bash
 # Clone repository
@@ -111,17 +137,26 @@ cd backend
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+
+# Create .env file
+cp .env.example .env
+# Edit .env with your configuration
+
+# Run migrations
 alembic upgrade head
 
-# Frontend setup
+# Start backend
+uvicorn app.main:app --reload
+
+# Frontend setup (new terminal)
 cd ../frontend
 npm install
 
-# Start development servers
-# Backend
-uvicorn app.main:app --reload
+# Create .env.local
+cp .env.example .env.local
+# Edit with your configuration
 
-# Frontend (new terminal)
+# Start frontend
 npm run dev
 ```
 
@@ -140,9 +175,15 @@ STRIPE_SECRET_KEY=sk_test_...
 
 **Frontend `.env.local` :**
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```
+
+### Production Deployment
+
+For production deployment instructions, see:
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Complete deployment guide
+- **[PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md)** - Deployment checklist
 
 ---
 
@@ -179,12 +220,14 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 - [x] Architecture système
 - [x] Design system et wireframes
 
-### Q2 2025 - MVP Development 🚧
-- [ ] Authentication & Users
-- [ ] AI Content Generation
-- [ ] Instagram Publishing
-- [ ] Basic Analytics
-- [ ] Stripe Billing
+### Q2 2025 - MVP Development ✅
+- [x] Authentication & Users (JWT, OAuth)
+- [x] AI Content Generation (GPT-4, Claude, DALL-E)
+- [x] Multi-platform Publishing (Instagram, WordPress)
+- [x] Post Management & Scheduling (Celery)
+- [x] Analytics Dashboard
+- [x] Stripe Billing & Subscriptions
+- [x] Production Deployment Ready
 
 ### Q3 2025 - Beta Publique 📅
 - [ ] Public launch (Product Hunt)
