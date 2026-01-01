@@ -88,5 +88,17 @@ export const postsApi = {
   async getStats(): Promise<any> {
     const response = await api.get('/content/stats')
     return response.data
+  },
+
+  // Cancel scheduled post
+  async cancelSchedule(postId: string): Promise<any> {
+    const response = await api.post(`/content/posts/${postId}/cancel-schedule`)
+    return response.data
+  },
+
+  // Get task status
+  async getTaskStatus(taskId: string): Promise<any> {
+    const response = await api.get(`/content/tasks/${taskId}`)
+    return response.data
   }
 }

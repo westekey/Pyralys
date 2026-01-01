@@ -184,6 +184,7 @@ function PostCard({
   onRefresh: () => void
 }) {
   const [showActions, setShowActions] = useState(false)
+  const [showPublishModal, setShowPublishModal] = useState(false)
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -299,13 +300,16 @@ function PostCard({
           >
             Edit
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => alert('Publish functionality will be added in Sprint 5!')}
-          >
-            Publish
-          </Button>
+          {post.status !== 'published' && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowPublishModal(true)}
+              disabled={!post.target_platforms || post.target_platforms.length === 0}
+            >
+              {post.status === 'scheduled' ? 'Reschedule' : 'Publish'}
+            </Button>
+          )}
           <Button
             size="sm"
             variant="destructive"
@@ -314,7 +318,40 @@ function PostCard({
             Delete
           </Button>
         </div>
+
+        {/* Publications Status */}
+        {post.publications && post.publications.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <p className="text-xs font-medium text-gray-700 mb-2">Publications:</p>
+            <div className="space-y-1">
+              {post.publications.map((pub: any) => (
+                <div key={pub.id} className="flex items-center justify-between text-xs">
+                  <span className="text-gray-600">{pub.platform}</span>
+                  <span className={`px-2 py-0.5 rounded ${
+                    pub.status === 'published' ? 'bg-green-100 text-green-800' :
+                    pub.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {pub.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Publish Modal */}
+      {showPublishModal && (
+        <PublishModal
+          post={post}
+          onClose={() => setShowPublishModal(false)}
+          onSuccess={() => {
+            setShowPublishModal(false)
+            onRefresh()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -518,6 +555,265 @@ function CreatePostModal({
             </Button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+// PublishModal Component
+function PublishModal({
+  post,
+  onClose,
+  onSuccess
+}: {
+  post: Post
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const [publishNow, setPublishNow] = useState(true)
+  const [scheduledDate, setScheduledDate] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [taskId, setTaskId] = useState<string | null>(null)
+  const [publishStatus, setPublishStatus] = useState<any>(null)
+
+  // Poll task status if we have a task ID
+  useEffect(() => {
+    if (!taskId) return
+
+    const interval = setInterval(async () => {
+      try {
+        const status = await postsApi.getTaskStatus(taskId)
+        setPublishStatus(status)
+
+        if (status.state === 'SUCCESS' || status.state === 'FAILURE') {
+          clearInterval(interval)
+          setLoading(false)
+
+          if (status.state === 'SUCCESS') {
+            setTimeout(() => {
+              onSuccess()
+            }, 2000) // Show success for 2 seconds before closing
+          }
+        }
+      } catch (error) {
+        console.error('Error polling task status:', error)
+        clearInterval(interval)
+        setLoading(false)
+      }
+    }, 2000) // Poll every 2 seconds
+
+    return () => clearInterval(interval)
+  }, [taskId, onSuccess])
+
+  const handlePublish = async () => {
+    try {
+      setLoading(true)
+
+      if (publishNow) {
+        // Publish immediately
+        const result = await postsApi.publish(post.id, {
+          platforms: post.target_platforms,
+          publish_immediately: true
+        })
+
+        if (result.task_id) {
+          setTaskId(result.task_id)
+        } else {
+          // No task ID, just refresh
+          setTimeout(() => {
+            onSuccess()
+          }, 1000)
+        }
+      } else {
+        // Schedule for later
+        if (!scheduledDate) {
+          alert('Please select a date and time')
+          setLoading(false)
+          return
+        }
+
+        await postsApi.publish(post.id, {
+          platforms: post.target_platforms,
+          publish_immediately: false,
+          scheduled_for: scheduledDate
+        })
+
+        setLoading(false)
+        setTimeout(() => {
+          onSuccess()
+        }, 1000)
+      }
+    } catch (error) {
+      console.error('Error publishing post:', error)
+      alert('Failed to publish post')
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-md w-full">
+        <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Publish Post</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-2xl"
+            disabled={loading}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Post Title */}
+          <div>
+            <h3 className="font-semibold mb-2">{post.title || 'Untitled Post'}</h3>
+            <p className="text-sm text-gray-600 line-clamp-2">{post.caption}</p>
+          </div>
+
+          {/* Platforms */}
+          <div>
+            <p className="text-sm font-medium mb-2">Publishing to:</p>
+            <div className="flex flex-wrap gap-2">
+              {post.target_platforms.map((platform) => (
+                <span
+                  key={platform}
+                  className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                >
+                  {platform}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Publish Options */}
+          {!taskId && !publishStatus && (
+            <>
+              <div className="space-y-3">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    checked={publishNow}
+                    onChange={() => setPublishNow(true)}
+                    disabled={loading}
+                  />
+                  <span>Publish now</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    checked={!publishNow}
+                    onChange={() => setPublishNow(false)}
+                    disabled={loading}
+                  />
+                  <span>Schedule for later</span>
+                </label>
+              </div>
+
+              {!publishNow && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Schedule Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={scheduledDate}
+                    onChange={(e) => setScheduledDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    disabled={loading}
+                  />
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Publishing Status */}
+          {(taskId || publishStatus) && (
+            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                {publishStatus?.state === 'SUCCESS' ? (
+                  <span className="text-2xl">✅</span>
+                ) : publishStatus?.state === 'FAILURE' ? (
+                  <span className="text-2xl">❌</span>
+                ) : (
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                )}
+                <div className="flex-1">
+                  <p className="font-medium">
+                    {publishStatus?.state === 'SUCCESS' ? 'Published Successfully!' :
+                     publishStatus?.state === 'FAILURE' ? 'Publishing Failed' :
+                     publishStatus?.state === 'PROGRESS' ? 'Publishing...' :
+                     'Queued for Publishing'}
+                  </p>
+                  {publishStatus?.state === 'PROGRESS' && publishStatus?.progress && (
+                    <p className="text-sm text-gray-600">{publishStatus.progress.status}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Results */}
+              {publishStatus?.result && (
+                <div className="space-y-2">
+                  {publishStatus.result.platforms && Object.entries(publishStatus.result.platforms).map(([platform, result]: [string, any]) => (
+                    <div key={platform} className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{platform}</span>
+                      <span className={`px-2 py-1 rounded ${
+                        result.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {result.success ? 'Success' : 'Failed'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Error */}
+              {publishStatus?.state === 'FAILURE' && publishStatus?.error && (
+                <p className="text-sm text-red-600">{publishStatus.error}</p>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          {!taskId && !publishStatus && (
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={onClose}
+                className="flex-1"
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handlePublish}
+                className="flex-1"
+                disabled={loading}
+              >
+                {loading ? 'Publishing...' : publishNow ? 'Publish Now' : 'Schedule'}
+              </Button>
+            </div>
+          )}
+
+          {publishStatus?.state === 'SUCCESS' && (
+            <Button onClick={onSuccess} className="w-full">
+              Done
+            </Button>
+          )}
+
+          {publishStatus?.state === 'FAILURE' && (
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={onClose} className="flex-1">
+                Close
+              </Button>
+              <Button onClick={() => {
+                setTaskId(null)
+                setPublishStatus(null)
+                setLoading(false)
+              }} className="flex-1">
+                Retry
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
