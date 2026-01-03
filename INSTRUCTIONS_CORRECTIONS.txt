@@ -1,0 +1,240 @@
+╔══════════════════════════════════════════════════════════════════╗
+║           INSTRUCTIONS COMPLÈTES - CORRECTIONS DOCKER            ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📁 FICHIERS À MODIFIER:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. frontend/next.config.js
+2. frontend/lib/auth.ts (vérification)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✏️  MODIFICATION 1: frontend/next.config.js
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLÈME:
+  ⚠ Invalid next.config.js options detected:
+  ⚠ Expected object, received boolean at "experimental.serverActions"
+
+ACTUEL (LIGNES 7-10):
+  // Experimental features
+  experimental: {
+    serverActions: true,
+  },
+
+NOUVEAU (SUPPRIMEZ ces lignes):
+  // Experimental features - Server Actions sont activés par défaut
+  // experimental: {
+  //   serverActions: true,
+  // },
+
+OU PLUS SIMPLEMENT, remplacez tout le fichier par:
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  images: {
+    domains: ['localhost', 's3.amazonaws.com'],
+  },
+}
+
+module.exports = nextConfig
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✏️  VÉRIFICATION 2: frontend/lib/auth.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLÈME:
+  Type error: Expected 3 arguments, but got 1.
+  Ligne 67 de hooks/useAuth.ts appelle AuthAPI.register(data)
+
+VÉRIFIEZ que les LIGNES 11-14 de lib/auth.ts sont:
+
+  static async register(data: RegisterData): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/register', data)
+    return response.data
+  }
+
+SI VOUS VOYEZ CECI À LA PLACE (ANCIENNE VERSION):
+  static async register(email: string, password: string, fullName: string) {
+    const formData = new URLSearchParams()
+    formData.append('email', email)
+    formData.append('password', password)
+    formData.append('full_name', fullName)
+    
+    const response = await api.post<AuthResponse>('/auth/register', formData)
+    return response.data
+  }
+
+ALORS REMPLACEZ PAR LA NOUVELLE VERSION (CI-DESSUS).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 ÉTAPES À SUIVRE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Ouvrir frontend/next.config.js
+   → Remplacer tout le contenu par la version simplifiée ci-dessus
+
+2. Ouvrir frontend/lib/auth.ts
+   → Vérifier lignes 11-14
+   → Si différent, remplacer par la version correcte
+
+3. NETTOYER le cache Docker:
+   docker system prune -f
+   docker builder prune -f
+
+4. Relancer le build:
+   cd "C:\Program Files\Docker\Pyralys"
+   docker-compose up -d --build
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 VERSION COMPLÈTE DU FICHIER lib/auth.ts (REFERENCE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * Authentication utilities and API calls
+ */
+import { api } from './api'
+import { AuthResponse, LoginCredentials, RegisterData, User } from './types'
+
+export class AuthAPI {
+  /**
+   * Register a new user
+   */
+  static async register(data: RegisterData): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/register', data)
+    return response.data
+  }
+
+  /**
+   * Login with email and password
+   */
+  static async login(credentials: LoginCredentials): Promise<AuthResponse> {
+    // OAuth2 format requires form data
+    const formData = new URLSearchParams()
+    formData.append('username', credentials.username)
+    formData.append('password', credentials.password)
+
+    const response = await api.post<AuthResponse>('/auth/login', formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    })
+
+    return response.data
+  }
+
+  /**
+   * Refresh access token
+   */
+  static async refreshToken(refreshToken: string): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/refresh', null, {
+      params: { refresh_token: refreshToken },
+    })
+    return response.data
+  }
+
+  /**
+   * Get current user information
+   */
+  static async getCurrentUser(): Promise<User> {
+    const response = await api.get<User>('/auth/me')
+    return response.data
+  }
+
+  /**
+   * Update current user
+   */
+  static async updateProfile(data: { full_name?: string }): Promise<User> {
+    const response = await api.put<User>('/auth/me', data)
+    return response.data
+  }
+
+  /**
+   * Change password
+   */
+  static async changePassword(
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ message: string }> {
+    const response = await api.post('/auth/change-password', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    })
+    return response.data
+  }
+
+  /**
+   * Request password reset
+   */
+  static async forgotPassword(email: string): Promise<{ message: string }> {
+    const response = await api.post('/auth/forgot-password', { email })
+    return response.data
+  }
+
+  /**
+   * Reset password with token
+   */
+  static async resetPassword(
+    token: string,
+    newPassword: string
+  ): Promise<{ message: string }> {
+    const response = await api.post('/auth/reset-password', {
+      token,
+      new_password: newPassword,
+    })
+    return response.data
+  }
+}
+
+/**
+ * Token management
+ */
+export class TokenManager {
+  private static ACCESS_TOKEN_KEY = 'access_token'
+  private static REFRESH_TOKEN_KEY = 'refresh_token'
+
+  static setTokens(accessToken: string, refreshToken: string): void {
+    if (typeof window === 'undefined') return
+
+    localStorage.setItem(this.ACCESS_TOKEN_KEY, accessToken)
+    localStorage.setItem(this.REFRESH_TOKEN_KEY, refreshToken)
+  }
+
+  static getAccessToken(): string | null {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem(this.ACCESS_TOKEN_KEY)
+  }
+
+  static getRefreshToken(): string | null {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem(this.REFRESH_TOKEN_KEY)
+  }
+
+  static clearTokens(): void {
+    if (typeof window === 'undefined') return
+
+    localStorage.removeItem(this.ACCESS_TOKEN_KEY)
+    localStorage.removeItem(this.REFRESH_TOKEN_KEY)
+  }
+
+  static hasTokens(): boolean {
+    return !!this.getAccessToken() && !!this.getRefreshToken()
+  }
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ APRÈS LES MODIFICATIONS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Le build devrait réussir. Temps estimé: 4-6 minutes
+
+Si nouvelles erreurs apparaissent, copiez les 30 dernières lignes et
+montrez-les moi.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

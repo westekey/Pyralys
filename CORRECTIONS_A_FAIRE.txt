@@ -1,0 +1,128 @@
+═══════════════════════════════════════════════════════════════════
+           CORRECTIONS APPLIQUÉES - DOCKER BUILD
+═══════════════════════════════════════════════════════════════════
+
+✅ FICHIER 1: frontend/next.config.js
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STATUT: ✅ CORRIGÉ AUTOMATIQUEMENT
+
+Suppression de la section deprecated:
+  experimental: {
+    serverActions: true,
+  }
+
+Le fichier est maintenant propre et sans warnings.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  PROBLÈME RESTANT: AuthAPI.register()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+L'erreur Docker montre:
+  Type error: Expected 3 arguments, but got 1.
+  ./hooks/useAuth.ts:67:38
+
+Cela signifie que Docker utilise une ANCIENNE VERSION cachée de
+lib/auth.ts avec cette signature incorrecte:
+
+  static async register(email: string, password: string, fullName: string)
+
+Au lieu de la version correcte:
+
+  static async register(data: RegisterData): Promise<AuthResponse>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 SOLUTION: NETTOYER LE CACHE DOCKER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Exécutez ces commandes dans PowerShell:
+
+1. Nettoyer le cache Docker:
+   docker system prune -f
+   docker builder prune -f
+
+2. Supprimer les images existantes:
+   docker-compose down --rmi local
+
+3. Rebuild complet depuis zéro:
+   cd "C:\Program Files\Docker\Pyralys"
+   docker-compose up -d --build
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 VÉRIFICATION MANUELLE (SI PROBLÈME PERSISTE):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Ouvrez le fichier: frontend/lib/auth.ts
+
+Vérifiez les lignes 11-14:
+
+  static async register(data: RegisterData): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/register', data)
+    return response.data
+  }
+
+Si vous voyez autre chose, remplacez par le code complet dans le fichier:
+  INSTRUCTIONS_CORRECTIONS.txt
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 COMMANDES À EXÉCUTER MAINTENANT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+docker system prune -f
+docker builder prune -f
+docker-compose down --rmi local
+docker-compose up -d --build
+
+Durée estimée: 5-7 minutes (build complet depuis zéro)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ SI LE BUILD RÉUSSIT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Vérifier les services:
+   docker-compose ps
+
+2. Initialiser la base de données:
+   docker-compose exec backend alembic upgrade head
+
+3. Créer un utilisateur test:
+   docker-compose exec backend python
+
+   Puis copier/coller:
+
+   from app.core.database import SessionLocal
+   from app.models.user import User
+   from app.core.security import get_password_hash
+   import uuid
+
+   db = SessionLocal()
+   user = User(
+       id=uuid.uuid4(),
+       email="demo@pyralys.com",
+       hashed_password=get_password_hash("demo123"),
+       full_name="Demo User",
+       plan_type="premium"
+   )
+   db.add(user)
+   db.commit()
+   print(f"✅ Utilisateur créé: {user.email}")
+   db.close()
+   exit()
+
+4. Accéder à l'application:
+   Frontend: http://localhost:3000
+   Login: demo@pyralys.com / demo123
+   API Docs: http://localhost:8000/docs
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  SI UNE ERREUR APPARAIT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Copiez les 30 dernières lignes et montrez-les moi.
+
+═══════════════════════════════════════════════════════════════════
