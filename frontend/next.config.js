@@ -4,10 +4,6 @@ const nextConfig = {
   images: {
     domains: ['localhost', 's3.amazonaws.com'],
   },
-  // Experimental features
-  experimental: {
-    serverActions: true,
-  },
 }
 
 module.exports = nextConfig
