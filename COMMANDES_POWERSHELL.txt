@@ -1,0 +1,213 @@
+═══════════════════════════════════════════════════════════════════
+    INSTRUCTIONS COMPLÈTES - WINDOWS POWERSHELL
+═══════════════════════════════════════════════════════════════════
+
+⚠️  IMPORTANT: Exécutez ces commandes UNE PAR UNE dans PowerShell
+            Attendez que chaque commande se termine avant la suivante
+
+═══════════════════════════════════════════════════════════════════
+
+ÉTAPE 1: NETTOYER LE CACHE DOCKER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Ouvrez PowerShell et exécutez:
+
+docker system prune -f
+
+Attendez... (environ 10-30 secondes)
+
+Puis:
+
+docker builder prune -f
+
+Attendez... (environ 5-10 secondes)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ÉTAPE 2: ARRÊTER ET SUPPRIMER LES ANCIENS CONTAINERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Naviguez vers le dossier du projet:
+
+cd "C:\Program Files\Docker\Pyralys"
+
+Puis arrêtez et supprimez les anciens containers et images:
+
+docker-compose down --rmi local
+
+Attendez... (environ 10-20 secondes)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ÉTAPE 3: REBUILD COMPLET DEPUIS ZÉRO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Lancez le build complet:
+
+docker-compose up -d --build
+
+⏱️  ATTENDEZ 5-7 MINUTES
+
+Vous allez voir défiler:
+  [+] Building...
+  => [frontend deps 1/3] WORKDIR /app
+  => [frontend deps 2/3] COPY package.json
+  => [frontend deps 3/3] RUN npm install  (le plus long ~3 min)
+  => [frontend builder] RUN npm run build (environ 2 min)
+  => [backend] pip install...
+  ...
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ SI LE BUILD RÉUSSIT (aucune erreur rouge)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ÉTAPE 4: VÉRIFIER QUE LES SERVICES SONT ACTIFS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+docker-compose ps
+
+Vous devez voir tous les services avec "Up":
+
+  NAME                STATUS
+  pyralys-backend     Up
+  pyralys-frontend    Up
+  pyralys-postgres    Up
+  pyralys-redis       Up
+  pyralys-celery      Up
+  pyralys-beat        Up
+  pyralys-flower      Up
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ÉTAPE 5: INITIALISER LA BASE DE DONNÉES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+docker-compose exec backend alembic upgrade head
+
+Vous devriez voir:
+  INFO  [alembic.runtime.migration] Running upgrade...
+  INFO  [alembic.runtime.migration] Running upgrade -> abc123...
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ÉTAPE 6: CRÉER UN UTILISATEUR DE TEST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Entrez dans le container Python:
+
+docker-compose exec backend python
+
+Vous allez voir:
+  Python 3.11.x ...
+  >>>
+
+Maintenant COPIEZ ET COLLEZ tout ce bloc (en une seule fois):
+
+from app.core.database import SessionLocal
+from app.models.user import User
+from app.core.security import get_password_hash
+import uuid
+
+db = SessionLocal()
+user = User(
+    id=uuid.uuid4(),
+    email="demo@pyralys.com",
+    hashed_password=get_password_hash("demo123"),
+    full_name="Demo User",
+    plan_type="premium"
+)
+db.add(user)
+db.commit()
+print(f"✅ Utilisateur créé: {user.email}")
+db.close()
+exit()
+
+Vous devriez voir:
+  ✅ Utilisateur créé: demo@pyralys.com
+
+Et retour au PowerShell.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ÉTAPE 7: TESTER L'APPLICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Ouvrez votre navigateur web et allez sur:
+
+  http://localhost:3000
+
+Vous devriez voir la page d'accueil de Pyralys.
+
+Cliquez sur "Login" et connectez-vous avec:
+
+  Email:    demo@pyralys.com
+  Password: demo123
+
+Vous devriez accéder au dashboard!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 AUTRES URLS UTILES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Frontend:          http://localhost:3000
+Backend API Docs:  http://localhost:8000/docs
+Flower (Celery):   http://localhost:5555
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  SI LE BUILD ÉCHOUE AVEC UNE ERREUR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ARRÊTEZ et faites ceci:
+
+1. Copiez les 30 dernières lignes de l'erreur
+
+2. Montrez-moi l'erreur complète
+
+3. Je vous donnerai la solution exacte
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🛑 COMMANDES UTILES POUR DEBUGGING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Voir les logs du frontend:
+docker-compose logs frontend
+
+Voir les logs du backend:
+docker-compose logs backend
+
+Voir tous les logs:
+docker-compose logs
+
+Arrêter tous les services:
+docker-compose down
+
+Redémarrer un service spécifique:
+docker-compose restart frontend
+
+Voir l'utilisation des ressources:
+docker stats
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 RÉCAPITULATIF DES COMMANDES DANS L'ORDRE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+docker system prune -f
+docker builder prune -f
+cd "C:\Program Files\Docker\Pyralys"
+docker-compose down --rmi local
+docker-compose up -d --build
+# ATTENDRE 5-7 MINUTES
+docker-compose ps
+docker-compose exec backend alembic upgrade head
+docker-compose exec backend python
+# COLLER LE CODE PYTHON POUR CRÉER L'UTILISATEUR
+# Puis aller sur http://localhost:3000
+
+═══════════════════════════════════════════════════════════════════
+            FIN DES INSTRUCTIONS - BONNE CHANCE! 🚀
+═══════════════════════════════════════════════════════════════════
