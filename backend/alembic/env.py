@@ -12,7 +12,7 @@ from app.models.social_account import SocialAccount
 from app.models.instagram_account import InstagramAccount
 from app.models.wordpress_account import WordPressAccount
 from app.models.subscription import Subscription, Invoice, PaymentMethod
-from app.models.usage import UsageRecord
+from app.models.usage import Usage
 
 # this is the Alembic Config object
 config = context.config
