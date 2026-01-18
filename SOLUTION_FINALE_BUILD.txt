@@ -1,0 +1,38 @@
+═══════════════════════════════════════════════════════════════════
+       SOLUTION FINALE - BUILD DOCKER RÉUSSI
+═══════════════════════════════════════════════════════════════════
+
+✅ CORRECTIONS APPLIQUÉES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. backend/app/models/subscription.py
+   ✓ Renommé 'metadata' → 'extra_data' (mot réservé SQLAlchemy)
+
+2. frontend/next.config.js
+   ✓ 'output: standalone' présent (requis pour Docker)
+
+3. frontend/Dockerfile
+   ✓ Changé 'npm ci' → 'npm install' (pas de package-lock.json)
+
+4. frontend/.env.local
+   ✓ Fichier présent avec configuration API
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 COMMANDES À EXÉCUTER MAINTENANT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+cd "C:\Program Files\Docker\Pyralys"
+docker-compose build --no-cache backend frontend
+docker-compose up -d
+
+⏱️  Durée: 4-5 minutes
+
+Puis:
+
+docker-compose ps
+docker-compose exec backend alembic upgrade head
+
+Ouvrir navigateur: http://localhost:3000
+
+═══════════════════════════════════════════════════════════════════

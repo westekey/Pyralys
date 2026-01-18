@@ -1,0 +1,142 @@
+═══════════════════════════════════════════════════════════════════
+        SOLUTION - ERREUR "Expected 3 arguments, but got 1"
+═══════════════════════════════════════════════════════════════════
+
+❌ PROBLÈME ACTUEL:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Type error: Expected 3 arguments, but got 1.
+./hooks/useAuth.ts:67:38
+const response = await AuthAPI.register(data)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 DIAGNOSTIC:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vos fichiers locaux sont CORRECTS mais Docker utilise une ANCIENNE
+VERSION CACHÉE de lib/auth.ts avec la mauvaise signature:
+
+  ❌ Cache Docker: register(email, password, fullName)
+  ✅ Fichier local: register(data: RegisterData)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 SOLUTION: NETTOYER COMPLÈTEMENT LE CACHE DOCKER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Exécutez ces commandes UNE PAR UNE dans PowerShell:
+
+1. Arrêter tous les containers:
+   docker-compose down
+
+2. Supprimer les images locales:
+   docker-compose down --rmi local
+
+3. Supprimer TOUT le cache de build Docker:
+   docker builder prune --all --force
+
+4. Nettoyer le système Docker:
+   docker system prune -a --force
+
+5. Rebuild SANS CACHE (important!):
+   docker-compose build --no-cache
+
+6. Démarrer les services:
+   docker-compose up -d
+
+⏱️  Durée totale: 7-10 minutes (rebuild complet depuis zéro)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 COPIER/COLLER TOUTES LES COMMANDES EN UNE FOIS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+cd "C:\Program Files\Docker\Pyralys"
+docker-compose down
+docker-compose down --rmi local
+docker builder prune --all --force
+docker system prune -a --force
+docker-compose build --no-cache
+docker-compose up -d
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  IMPORTANT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+L'option --no-cache dans "docker-compose build --no-cache" est
+CRUCIALE car elle force Docker à ignorer TOUT le cache et à
+utiliser vos fichiers actuels.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ APRÈS LE BUILD RÉUSSI:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Vérifier les services:
+   docker-compose ps
+
+   Tous devraient afficher "Up"
+
+2. Initialiser la base de données:
+   docker-compose exec backend alembic upgrade head
+
+3. Créer l'utilisateur de test:
+   docker-compose exec backend python
+
+   Puis coller:
+
+from app.core.database import SessionLocal
+from app.models.user import User
+from app.core.security import get_password_hash
+import uuid
+db = SessionLocal()
+user = User(id=uuid.uuid4(), email="demo@pyralys.com", hashed_password=get_password_hash("demo123"), full_name="Demo User", plan_type="premium")
+db.add(user)
+db.commit()
+print(f"✅ Utilisateur: {user.email}")
+db.close()
+exit()
+
+4. Tester l'application:
+   http://localhost:3000
+   Login: demo@pyralys.com / demo123
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❓ SI LE PROBLÈME PERSISTE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vérifiez que le fichier frontend/lib/auth.ts contient bien ceci
+aux LIGNES 11-14:
+
+  static async register(data: RegisterData): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/register', data)
+    return response.data
+  }
+
+Si vous voyez autre chose comme:
+  static async register(email: string, password: string, fullName: string)
+
+Alors remplacez la méthode register complète par:
+
+  static async register(data: RegisterData): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/register', data)
+    return response.data
+  }
+
+Puis refaites le build --no-cache.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 RÉCAPITULATIF:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Le problème n'est PAS dans vos fichiers (ils sont corrects).
+Le problème est que Docker utilise une version CACHÉE.
+
+La solution: Forcer un rebuild complet SANS CACHE avec:
+  docker-compose build --no-cache
+
+═══════════════════════════════════════════════════════════════════

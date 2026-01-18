@@ -1,0 +1,69 @@
+═══════════════════════════════════════════════════════════════════
+           COMMANDES À EXÉCUTER - COPIER/COLLER
+═══════════════════════════════════════════════════════════════════
+
+⚠️  LE PROBLÈME: Docker utilise une ancienne version CACHÉE
+
+✅ LA SOLUTION: Rebuild complet SANS CACHE
+
+
+OUVREZ POWERSHELL ET COPIEZ/COLLEZ CECI:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+cd "C:\Program Files\Docker\Pyralys"
+docker-compose down
+docker-compose down --rmi local
+docker builder prune --all --force
+docker system prune -a --force
+docker-compose build --no-cache
+docker-compose up -d
+
+
+⏱️  ATTENDEZ 7-10 MINUTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vous allez voir défiler pendant plusieurs minutes:
+  [+] Building...
+  => [frontend deps] RUN npm install  (~3 min)
+  => [frontend builder] RUN npm run build  (~2-3 min)
+  => [backend] pip install...  (~1 min)
+
+C'est NORMAL car tout est rebuild depuis zéro.
+
+
+✅ APRÈS LE BUILD (quand vous voyez "done"):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vérifiez que tout fonctionne:
+
+docker-compose ps
+
+Initialisez la base:
+
+docker-compose exec backend alembic upgrade head
+
+Créez l'utilisateur:
+
+docker-compose exec backend python
+
+Puis collez:
+
+from app.core.database import SessionLocal
+from app.models.user import User
+from app.core.security import get_password_hash
+import uuid
+db = SessionLocal()
+user = User(id=uuid.uuid4(), email="demo@pyralys.com", hashed_password=get_password_hash("demo123"), full_name="Demo User", plan_type="premium")
+db.add(user)
+db.commit()
+print(f"✅ Utilisateur: {user.email}")
+db.close()
+exit()
+
+Testez:
+
+http://localhost:3000
+Login: demo@pyralys.com / demo123
+
+
+═══════════════════════════════════════════════════════════════════

@@ -61,7 +61,7 @@ class Subscription(Base, TimestampMixin):
     cancel_at_period_end = Column(Boolean, default=False)
 
     # Metadata
-    metadata = Column(JSONB, default=dict)
+    extra_data = Column(JSONB, default=dict)
 
     # Relationships
     user = relationship("User", back_populates="subscription")
@@ -101,7 +101,7 @@ class Invoice(Base, TimestampMixin):
     invoice_pdf = Column(Text, nullable=True)
 
     # Metadata
-    metadata = Column(JSONB, default=dict)
+    extra_data = Column(JSONB, default=dict)
 
     # Relationships
     subscription = relationship("Subscription", back_populates="invoices")
@@ -133,7 +133,7 @@ class PaymentMethod(Base, TimestampMixin):
     card_exp_year = Column(Integer, nullable=True)
 
     # Metadata
-    metadata = Column(JSONB, default=dict)
+    extra_data = Column(JSONB, default=dict)
 
     # Relationships
     subscription = relationship("Subscription", back_populates="payment_methods")
@@ -160,7 +160,7 @@ class UsageRecord(Base, TimestampMixin):
     billed = Column(Boolean, default=False)
 
     # Metadata
-    metadata = Column(JSONB, default=dict)
+    extra_data = Column(JSONB, default=dict)
 
     # Relationships
     user = relationship("User")
