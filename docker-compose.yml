@@ -123,11 +123,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: pyralys-frontend
-    command: npm run dev
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
     ports:
       - "3000:3000"
     env_file:
