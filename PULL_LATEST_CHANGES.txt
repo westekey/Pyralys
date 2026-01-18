@@ -1,0 +1,49 @@
+═══════════════════════════════════════════════════════════════════
+   📥 RÉCUPÉRER LES DERNIERS FICHIERS DEPUIS GIT
+═══════════════════════════════════════════════════════════════════
+
+🔴 PROBLÈME ACTUEL:
+Les fichiers manquants (lib/utils.ts, lib/billing.ts, etc.) existent
+dans Git mais pas dans votre dossier Windows.
+
+✅ SOLUTION - EXÉCUTEZ CES COMMANDES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Naviguez vers le dossier Pyralys:
+   cd "C:\Program Files\Docker\Pyralys"
+
+2. Récupérez les derniers changements:
+   git fetch origin claude/project-setup-planning-u9sVF
+
+3. Appliquez les changements:
+   git pull origin claude/project-setup-planning-u9sVF
+
+4. Vérifiez que les fichiers sont là:
+   dir frontend\lib
+
+   Vous devriez voir:
+   ✓ api.ts
+   ✓ auth.ts
+   ✓ billing.ts
+   ✓ utils.ts
+   ✓ types.ts
+   ✓ posts.ts
+   ✓ analytics.ts
+   ✓ ai.ts
+
+5. Relancez le build Docker:
+   docker-compose build --no-cache frontend
+   docker-compose up -d
+
+═══════════════════════════════════════════════════════════════════
+
+📋 FICHIERS QUI SERONT MIS À JOUR:
+
+✓ backend/app/models/subscription.py (metadata → extra_data)
+✓ frontend/Dockerfile (npm ci → npm install)
+✓ frontend/next.config.js (output: 'standalone')
+✓ frontend/lib/*.ts (tous les fichiers manquants)
+✓ backend/.env.example (template de configuration)
+✓ frontend/.env.local.example (template frontend)
+
+═══════════════════════════════════════════════════════════════════
